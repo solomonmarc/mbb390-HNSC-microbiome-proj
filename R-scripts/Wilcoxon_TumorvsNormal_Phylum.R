@@ -38,14 +38,32 @@ wilcox_results_df <- data.frame(Phylum = character(),
 
 unique_phyla <- unique(combined_data$Phylum)
 
+
+p_values <- c()
+
+# Wilcoxon rank sum test with Bonferroni Correction to p-values
 for (phylum in unique_phyla) {
-    subset_data <- subset(combined_data, Phylum == phylum)
-      if ("Tumor" %in% subset_data$Type && "Paired Normal" %in% subset_data$Type) {
-        wilcox_results <- wilcox.test(Abundance ~ Type, data = subset_data, paired = TRUE, exact = FALSE)
-        wilcox_results_df <- rbind(wilcox_results_df, data.frame(Phylum = phylum,
-                                              W = wilcox_results$statistic,
-                                              p.value = wilcox_results$p.value))
-        }
+  subset_data <- subset(combined_data, Phylum == phylum)
+  
+  if ("Tumor" %in% subset_data$Type && "Paired Normal" %in% subset_data$Type) {
+    wilcox_results <- wilcox.test(Abundance ~ Type, data = subset_data, paired = TRUE, exact = FALSE)
+    
+    result_row <- data.frame(
+      Phylum = phylum,
+      W = wilcox_results$statistic,
+      p.value = wilcox_results$p.value
+    )
+    
+    wilcox_results_df <- rbind(wilcox_results_df, result_row)
+    
+    p_values <- c(p_values, wilcox_results$p.value)
+  }
+}
+
+if (length(p_values) > 0) {
+  adjusted_p_values <- p.adjust(p_values, method = "bonferroni")
+  
+  wilcox_results_df$p.adjusted <- adjusted_p_values
 }
 
 write.csv(wilcox_results_df, "wilcox_results_df.csv")
