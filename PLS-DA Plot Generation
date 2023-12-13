@@ -1,0 +1,32 @@
+#To load Excel table of microbial abundances as dataframe.
+install.packages("openxlsx")
+library(openxlsx)
+
+df <- read.xlsx("microbial_abundance_file", sheet = 1)
+
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("mixOmics")
+
+X <- as.matrix(df[, -c(1, 2)])
+Y <- as.factor(df$CancerSite)
+
+library (mixOmics)
+
+plsda_model <- plsda(X, Y, ncomp = 2)
+
+# Assuming plsda_model is your PLS-DA model object
+str(plsda_model)
+
+#plot(plsda_model, asp = 1)
+
+plot(plsda_model$variates$X[, 1], plsda_model$variates$X[, 2], col = plsda_model$Y)
+
+plotIndiv(
+  plsda_model,
+  asp = 1,
+  ellipse = TRUE,
+  legend = TRUE,
+  pch = 16  # Use a solid circle as the plotting symbol
+)
