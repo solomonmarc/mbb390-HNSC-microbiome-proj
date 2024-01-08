@@ -1,0 +1,69 @@
+tumor_data <- read.csv("table_Tumor.csv", header = TRUE)
+paired_normal_data <- read.csv("table_Normal.csv", header = TRUE)
+
+library(dplyr)
+tumor_median <- tumor_data %>%
+  group_by(Genera) %>%
+  summarise(
+    count = n(),
+    median = median(Abundance, na.rm = TRUE),
+    IQR = IQR(Abundance, na.rm = TRUE)
+  )
+normal_median <- paired_normal_data %>%
+  group_by(Genera) %>%
+  summarise(
+    count = n(),
+    median = median(Abundance, na.rm = TRUE),
+    IQR = IQR(Abundance, na.rm = TRUE)
+  )
+
+tumor_data$Type <- "Tumor"
+paired_normal_data$Type <- "Paired Normal"
+
+combined_data <- rbind(tumor_data, paired_normal_data)
+
+library("ggplot2")
+ggplot(combined_data, aes(x = Genera, y = Abundance, color = Type)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  geom_jitter(position = position_dodge(width = 0.8), size = 1) + 
+  labs(x = "Genera", y = "Abundance") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "red")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+wilcox_results_df <- data.frame(Genera = character(),
+                                W = numeric(),
+                                p.value = numeric(),
+                                stringsAsFactors = FALSE)
+
+unique_genera <- unique(combined_data$Genera)
+
+
+p_values <- c()
+
+# Wilcoxon rank sum test with Bonferroni Correction to p-values
+for (genera in unique_genera) {
+  subset_data <- subset(combined_data, Genera == genera)
+  
+  if ("Tumor" %in% subset_data$Type && "Paired Normal" %in% subset_data$Type) {
+    wilcox_results <- wilcox.test(Abundance ~ Type, data = subset_data, paired = TRUE, exact = FALSE)
+    
+    result_row <- data.frame(
+      Genera = genera,
+      W = wilcox_results$statistic,
+      p.value = wilcox_results$p.value
+    )
+    
+    wilcox_results_df <- rbind(wilcox_results_df, result_row)
+    
+    p_values <- c(p_values, wilcox_results$p.value)
+  }
+}
+
+if (length(p_values) > 0) {
+  adjusted_p_values <- p.adjust(p_values, method = "bonferroni")
+  
+  wilcox_results_df$p.adjusted <- adjusted_p_values
+}
+
+write.csv(wilcox_results_df, "wilcox_results_df.csv")
