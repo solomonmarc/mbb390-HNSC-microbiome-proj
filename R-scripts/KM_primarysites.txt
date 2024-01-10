@@ -1,0 +1,37 @@
+# Load the necessary libraries
+library(ggplot2)
+library(survival)
+library(survminer)
+library(cowplot)
+
+# Load the data
+load("D:/PhD/AY 2023-2024 1st sem/MBB 390/Oct16KMplots.RData")
+
+# Create a survival object
+surv_obj <- Surv(time = data$Time_in_months, event = ifelse(data$VitalStatus == "Dead", 1, 0))
+
+# Fit Kaplan-Meier survival curves
+surv_curves <- survfit(surv_obj ~ data$PrimarySite)
+
+# Plot the survival curves
+plot <- ggsurvplot(
+  surv_curves,
+  data = data,
+  pval = TRUE,  # Include p-values for log-rank tests
+  conf.int = TRUE,  # Add confidence intervals
+  risk.table = TRUE,  # Add risk table
+  palette = c("blue", "red", "green", "purple"),  # Customize color palette
+  legend.labs = c("Larynx", "Base of tongue", "Gum", "Floor of mouth")  # Add legend labels
+)
+
+# Save the table separately
+table <- plot$table
+
+# Save the plot
+ggsave("survival_curves_plot.png", plot = plot$plot, width = 10, height = 6, units = "in")
+
+# Combine the plot and table using cowplot
+combined_plot <- plot_grid(plot$plot, table, ncol = 1, align = "v")
+
+# Save the combined plot
+ggsave("combined_survival_curves_plot.png", plot = combined_plot, width = 10, height = 8, units = "in")
