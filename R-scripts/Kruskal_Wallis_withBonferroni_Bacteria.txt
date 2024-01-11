@@ -1,0 +1,80 @@
+# Load required libraries
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+# Specify the names of the top bacteria and their corresponding colors
+top_bacteria_colors <- c("Bacteroides" = "#E41A1C", "Pseudomonas" = "#377EB8", "Terrabacter" = "#4DAF4A")
+
+# Specify the names of the top bacteria
+top_bacteria_names <- c("Bacteroides", "Pseudomonas", "Terrabacter")
+
+# Combine the data for all three bacteria into a single data frame
+combined_data <- data.frame(
+  Bacteria = rep(top_bacteria_names, each = nrow(data)),
+  Abundance = c(data$Bacteroides, data$Pseudomonas, data$Terrabacter),
+  Stage = rep(data$Stage, times = 3)
+)
+
+# Remove rows with NAs
+combined_data <- na.omit(combined_data)
+
+# Check the number of rows in the combined data after removing NAs
+print(paste("Number of rows after removing NAs: ", nrow(combined_data)))
+
+# Filter out rows with missing values in the Stage column
+combined_data <- combined_data[!is.na(combined_data$Stage), ]
+
+# Check the number of rows after filtering
+print(paste("Number of rows after filtering: ", nrow(combined_data)))
+
+# Create a folder to save the plot and data
+dir.create("boxplots", showWarnings = FALSE)
+
+# Perform Kruskal-Wallis test and save p-values
+kruskal_results <- combined_data %>%
+  group_by(Bacteria) %>%
+  summarize(
+    avg_abundance = mean(Abundance, na.rm = TRUE),
+    kruskal_p_value = kruskal.test(Abundance ~ Stage)$p.value
+  )
+
+# Apply Bonferroni correction
+kruskal_results$bonferroni_p_value <- p.adjust(kruskal_results$kruskal_p_value, method = "bonferroni")
+
+# Save the data with p-values to a CSV file
+write.csv(
+  kruskal_results,
+  "boxplots/kruskal_results_with_p_values.csv",
+  row.names = FALSE
+)
+
+# Print the Kruskal-Wallis results
+print(kruskal_results)
+
+# Create a grouped boxplot with y-axis as relative abundance
+p <- ggplot(combined_data, aes(x = Stage, y = Abundance, fill = Bacteria)) +
+  geom_boxplot() +
+  labs(
+    title = "Grouped Boxplot for Bacteria by Tumor Stage",
+    y = "Relative Abundance",
+    x = "Tumor Stage"
+  ) +
+  scale_fill_manual(values = top_bacteria_colors) +  # Assign specified colors
+  geom_text(
+    aes(x = 2, y = max(combined_data$Abundance) * 0.9, 
+        label = paste("p =", round(kruskal_results$bonferroni_p_value[1], 4))),
+    vjust = -0.8,  # Adjust the vertical position
+    size = 4,
+    color = "black"
+  )
+
+# Save the grouped boxplot as a PNG file
+ggsave(
+  p,
+  file = "boxplots/grouped_boxplot_relative_abundance.png",
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
